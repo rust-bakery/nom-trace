@@ -17,6 +17,11 @@ impl Trace {
     }
   }
 
+  pub fn reset(&mut self) {
+    self.events.clear();
+    self.level = 0;
+  }
+
   pub fn print(&self) {
     for (i, event) in self.events.iter().enumerate() {
       event.print();
@@ -294,6 +299,7 @@ mod tests {
 
     NOM_TRACE.with(|trace| {
       trace.borrow().print();
+      trace.borrow_mut().reset();
     });
     panic!();
   }
@@ -318,6 +324,7 @@ mod tests {
 
     NOM_TRACE.with(|trace| {
       trace.borrow().print();
+      trace.borrow_mut().reset();
     });
     panic!();
   }

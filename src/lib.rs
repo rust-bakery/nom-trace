@@ -111,7 +111,7 @@ impl Trace {
   }
 
   pub fn print(&self) {
-    for (i, event) in self.events.iter().enumerate() {
+    for event in self.events.iter() {
       event.print();
     }
   }
@@ -235,36 +235,35 @@ impl TraceEvent {
 
 #[derive(Clone)]
 pub enum Input {
-  bytes(*const u8, usize),
-  string(*const u8, usize),
+  Bytes(*const u8, usize),
+  String(*const u8, usize),
 }
 
 impl From<&[u8]> for Input {
   fn from(input: &[u8]) -> Self {
-    Input::bytes(input.as_ptr(), input.len())
+    Input::Bytes(input.as_ptr(), input.len())
   }
 }
 
 impl From<&str> for Input {
   fn from(input: &str) -> Self {
-    Input::string(input.as_ptr(), input.len())
+    Input::String(input.as_ptr(), input.len())
   }
 }
 
 impl Debug for Input {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Input::string(ptr, len) => {
+      Input::String(ptr, len) => {
         let s = unsafe {
           std::str::from_utf8_unchecked(std::slice::from_raw_parts(*ptr, *len))
         };
         write!(f, "\"{}\"", s)
       },
-      Input::bytes(ptr, len) => {
+      Input::Bytes(ptr, len) => {
         let s: &[u8] = unsafe {
           std::slice::from_raw_parts(*ptr, *len)
         };
-        //write!(f, "{}", s.to_hex(16))
         write!(f, "{}", to_hex(s, 16))
       }
     }
@@ -279,7 +278,8 @@ fn to_hex(input: &[u8], chunk_size: usize) -> String {
     to_hex_chunk(input, i, input.len(), &mut v);
   } else {
     for chunk in input.chunks(chunk_size) {
-      to_hex_chunk(&input[i..std::cmp::min(i+chunk_size, input.len())],
+      //to_hex_chunk(&input[i..std::cmp::min(i+chunk_size, input.len())],
+      to_hex_chunk(chunk,
         i, chunk_size, &mut v);
       i += chunk_size;
       v.push(b'\n');
@@ -304,7 +304,7 @@ fn to_hex_chunk(chunk: &[u8], i: usize, chunk_size: usize, v: &mut Vec<u8>) {
     v.push(b' ');
   }
   if chunk_size > chunk.len() {
-    for j in 0..(chunk_size - chunk.len()) {
+    for _ in 0..(chunk_size - chunk.len()) {
       v.push(b' ');
       v.push(b' ');
       v.push(b' ');
@@ -385,7 +385,7 @@ macro_rules! tr (
 
       let res = $submac!(input, $($args)*);
       match &res {
-        Ok((i, o)) => {
+        Ok((_, o)) => {
           NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_ok(input, stringify!($submac!($($args)*)),
               format!("{:?}", o));
@@ -424,7 +424,7 @@ macro_rules! tr (
 
       let res = $f(input);
       match &res {
-        Ok((i, o)) => {
+        Ok((_, o)) => {
           NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_ok(input, stringify!($f),
               format!("{:?}", o));
@@ -458,7 +458,6 @@ macro_rules! tr (
 #[cfg(test)]
 mod tests {
   use super::*;
-  use std::cell::RefCell;
   use nom::digit;
 
   declare_trace!();

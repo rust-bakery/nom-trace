@@ -4,7 +4,7 @@ extern crate nom;
 #[macro_use]
 extern crate nom_trace;
 
-use nom::{alphanumeric, recognize_float, sp};
+use nom::{recognize_float, sp};
 
 use std::str;
 use std::collections::HashMap;

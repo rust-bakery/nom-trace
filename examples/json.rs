@@ -74,37 +74,43 @@ named!(
 
 named!(
   value<JsonValue>,
-  preceded!(sp, alt!(
-    hash    => { |h| JsonValue::Object(h)            } |
-    array   => { |v| JsonValue::Array(v)             } |
-    string  => { |s| JsonValue::Str(String::from(s)) } |
-    float   => { |f| JsonValue::Num(f)               } |
-    boolean => { |b| JsonValue::Boolean(b)           }
-  ))
+  preceded!(sp, tr!(alt!(
+    tr!(hash)    => { |h| JsonValue::Object(h)            } |
+    tr!(array)   => { |v| JsonValue::Array(v)             } |
+    tr!(string)  => { |s| JsonValue::Str(String::from(s)) } |
+    tr!(float)   => { |f| JsonValue::Num(f)               } |
+    tr!(boolean) => { |b| JsonValue::Boolean(b)           }
+  )))
 );
 
 named!(
   root<JsonValue>,
-  delimited!(
+  tr!(delimited!(
     call!(nom::sp),
-    alt!(
-      map!(hash, JsonValue::Object) |
-      map!(array, JsonValue::Array)
-    ),
+    tr!(alt!(
+      map!(tr!(hash), JsonValue::Object) |
+      map!(tr!(array), JsonValue::Array)
+    )),
     not!(complete!(nom::sp))
-  )
+  ))
 );
 
-fn main() {
-  //loop {
-    //let data = include_bytes!("../../data.json");
-    let data = b"  { \"a\"\t: 42,
-    \"b\": [ \"x\", \"y\", 12 ] ,
-    \"c\": { \"hello\" : \"world\"
-    }
-    }  ";
+declare_trace!();
 
-    root(data).unwrap();
-  //}
+fn main() {
+  let data = b"  { \"a\"\t: 42,
+  \"b\": [ \"x\", \"y\", 12 ] ,
+  \"c\": { \"hello\" : \"world\"
+  }
+  }  ";
+
+  match root(data) {
+    Ok(val) => println!("parsed value: {:#?}", val),
+    Err(e) => {
+      println!("parse error: {:?}", e);
+      print_trace!();
+    }
+  }
+  reset_trace!();
 }
 

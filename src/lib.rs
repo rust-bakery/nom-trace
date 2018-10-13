@@ -181,7 +181,8 @@ fn to_hex(input: &[u8], chunk_size: usize) -> String {
     to_hex_chunk(input, i, input.len(), &mut v);
   } else {
     for chunk in input.chunks(chunk_size) {
-      to_hex_chunk(input, i, chunk_size, &mut v);
+      to_hex_chunk(&input[i..std::cmp::min(i+chunk_size, input.len())],
+        i, chunk_size, &mut v);
       i += chunk_size;
       v.push(b'\n');
     }

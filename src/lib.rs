@@ -2,7 +2,6 @@
 extern crate nom;
 
 use std::fmt::{self,Debug};
-use nom::HexDisplay;
 
 pub struct Trace {
   pub events: Vec<TraceEvent>,
@@ -118,7 +117,7 @@ impl TraceEvent {
     let indent = std::iter::repeat('\t').take(self.level).collect::<String>();
     match &self.event {
       TraceEventType::Open => {
-        println!("{}{} | {:?}", indent, self.location, self.input);
+        println!("{}{}\t{:?}", indent, self.location, self.input);
       },
       TraceEventType::CloseOk(result) => {
         println!("{}-> Ok({})", indent, result);
@@ -167,8 +166,58 @@ impl Debug for Input {
         let s: &[u8] = unsafe {
           std::slice::from_raw_parts(*ptr, *len)
         };
-        write!(f, "{}", s.to_hex(16))
+        //write!(f, "{}", s.to_hex(16))
+        write!(f, "{}", to_hex(s, 16))
       }
+    }
+  }
+}
+
+fn to_hex(input: &[u8], chunk_size: usize) -> String {
+  let mut v = Vec::with_capacity(input.len() * 3);
+  let mut i = 0;
+
+  if input.len() <= chunk_size {
+    to_hex_chunk(input, i, input.len(), &mut v);
+  } else {
+    for chunk in input.chunks(chunk_size) {
+      to_hex_chunk(input, i, chunk_size, &mut v);
+      i += chunk_size;
+      v.push(b'\n');
+    }
+  }
+
+  String::from_utf8_lossy(&v[..]).into_owned()
+}
+
+static CHARS: &'static [u8] = b"0123456789abcdef";
+
+fn to_hex_chunk(chunk: &[u8], i: usize, chunk_size: usize, v: &mut Vec<u8>) {
+  let s = format!("{:08x}", i);
+  for &ch in s.as_bytes().iter() {
+    v.push(ch);
+  }
+  v.push(b'\t');
+
+  for &byte in chunk {
+    v.push(CHARS[(byte >> 4) as usize]);
+    v.push(CHARS[(byte & 0xf) as usize]);
+    v.push(b' ');
+  }
+  if chunk_size > chunk.len() {
+    for j in 0..(chunk_size - chunk.len()) {
+      v.push(b' ');
+      v.push(b' ');
+      v.push(b' ');
+    }
+  }
+  v.push(b'\t');
+
+  for &byte in chunk {
+    if (byte >= 32 && byte <= 126) || byte >= 128 {
+      v.push(byte);
+    } else {
+      v.push(b'.');
     }
   }
 }

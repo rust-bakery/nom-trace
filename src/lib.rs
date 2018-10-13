@@ -225,23 +225,39 @@ fn to_hex_chunk(chunk: &[u8], i: usize, chunk_size: usize, v: &mut Vec<u8>) {
 
 #[macro_export]
 macro_rules! declare_trace (
- ($t:expr) => (
+ () => (
     thread_local! {
-      //pub static NOM_TRACE: RefCell<Trace<$t>> = RefCell::new(Trace::new());
-      pub static NOM_TRACE: RefCell<Trace<&str>> = RefCell::new(Trace::new());
+      pub static NOM_TRACE: ::std::cell::RefCell<$crate::Trace> = ::std::cell::RefCell::new($crate::Trace::new());
     }
   );
+);
+
+#[macro_export]
+macro_rules! print_trace (
+ () => {
+  NOM_TRACE.with(|trace| {
+    trace.borrow().print();
+  });
+ };
+);
+
+#[macro_export]
+macro_rules! reset_trace (
+ () => {
+  NOM_TRACE.with(|trace| {
+    trace.borrow_mut().reset();
+  });
+ };
 );
 
 #[macro_export]
 macro_rules! tr (
   ($i:expr, $submac:ident!( $($args:tt)* )) => (
     {
-      use $crate::nom::Err;
+      use ::nom::Err;
 
       let input = $i;
       NOM_TRACE.with(|trace| {
-        //(*trace.borrow_mut()).open(input.to_string(), stringify!($submac!($($args)*)));
         (*trace.borrow_mut()).open(input, stringify!($submac));
       });
 
@@ -277,7 +293,7 @@ macro_rules! tr (
   );
   ($i:expr, $f:expr) => (
     {
-      use $crate::nom::Err;
+      use nom::Err;
 
       let input = $i;
       NOM_TRACE.with(|trace| {
@@ -323,11 +339,7 @@ mod tests {
   use std::cell::RefCell;
   use nom::digit;
 
-  //declare_trace!(&'static str);
-  thread_local! {
-    //pub static NOM_TRACE: RefCell<Trace<&'static str>> = RefCell::new(Trace::new());
-    pub static NOM_TRACE: RefCell<Trace> = RefCell::new(Trace::new());
-  }
+  declare_trace!();
 
   #[test]
   pub fn trace_bytes_parser() {
@@ -347,10 +359,8 @@ mod tests {
 
     println!("parsed: {:?}", parser(&b"data: (1,2,3)"[..]));
 
-    NOM_TRACE.with(|trace| {
-      trace.borrow().print();
-      trace.borrow_mut().reset();
-    });
+    print_trace!();
+    reset_trace!();
     panic!();
   }
 
@@ -372,10 +382,8 @@ mod tests {
 
     println!("parsed: {:?}", parser("data: (1,2,3)"));
 
-    NOM_TRACE.with(|trace| {
-      trace.borrow().print();
-      trace.borrow_mut().reset();
-    });
+    print_trace!();
+    reset_trace!();
     panic!();
   }
 }

@@ -93,6 +93,7 @@ use std::fmt::{self,Debug};
 pub struct Trace {
   pub events: Vec<TraceEvent>,
   pub level: usize,
+  pub active: bool,
 }
 
 impl Trace {
@@ -100,6 +101,7 @@ impl Trace {
     Trace {
       events: Vec::new(),
       level: 0,
+      active: true,
     }
   }
 
@@ -116,59 +118,68 @@ impl Trace {
 
   pub fn open<T>(&mut self, input: T, location: &'static str)
     where Input: From<T> {
+    if self.active {
+      self.events.push(TraceEvent::new(
+        self.level,
+        input,
+        location,
+        TraceEventType::Open,
+      ));
 
-    self.events.push(TraceEvent::new(
-      self.level,
-      input,
-      location,
-      TraceEventType::Open,
-    ));
-
-    self.level += 1;
+      self.level += 1;
+    }
   }
 
   pub fn close_ok<T>(&mut self, input: T, location: &'static str, result: String)
     where Input: From<T> {
-    self.level -= 1;
-    self.events.push(TraceEvent::new(
-      self.level,
-      input,
-      location,
-      TraceEventType::CloseOk(result),
-    ));
+    if self.active {
+      self.level -= 1;
+      self.events.push(TraceEvent::new(
+        self.level,
+        input,
+        location,
+        TraceEventType::CloseOk(result),
+      ));
+    }
   }
 
   pub fn close_error<T>(&mut self, input: T, location: &'static str, result: String)
     where Input: From<T> {
-    self.level -= 1;
-    self.events.push(TraceEvent::new(
-      self.level,
-      input,
-      location,
-      TraceEventType::CloseError(result),
-    ));
+    if self.active {
+      self.level -= 1;
+      self.events.push(TraceEvent::new(
+        self.level,
+        input,
+        location,
+        TraceEventType::CloseError(result),
+      ));
+    }
   }
 
   pub fn close_failure<T>(&mut self, input: T, location: &'static str, result: String)
     where Input: From<T> {
-    self.level -= 1;
-    self.events.push(TraceEvent::new(
-      self.level,
-      input,
-      location,
-      TraceEventType::CloseFailure(result),
-    ));
+    if self.active {
+      self.level -= 1;
+      self.events.push(TraceEvent::new(
+        self.level,
+        input,
+        location,
+        TraceEventType::CloseFailure(result),
+      ));
+    }
   }
 
   pub fn close_incomplete<T>(&mut self, input: T, location: &'static str, needed: nom::Needed)
     where Input: From<T> {
-    self.level -= 1;
-    self.events.push(TraceEvent::new(
-      self.level,
-      input,
-      location,
-      TraceEventType::CloseIncomplete(needed),
-    ));
+    if self.active {
+      self.level -= 1;
+      self.events.push(TraceEvent::new(
+        self.level,
+        input,
+        location,
+        TraceEventType::CloseIncomplete(needed),
+      ));
+    }
   }
 }
 
@@ -340,6 +351,26 @@ macro_rules! reset_trace (
  };
 );
 
+/// activates tracing (it is activated by default)
+#[macro_export]
+macro_rules! activate_trace (
+ () => {
+  NOM_TRACE.with(|trace| {
+    trace.borrow_mut().active = true;
+  });
+ };
+);
+
+/// deactivates tracing (it is activated by default)
+#[macro_export]
+macro_rules! deactivate_trace (
+ () => {
+  NOM_TRACE.with(|trace| {
+    trace.borrow_mut().active = false;
+  });
+ };
+);
+
 /// wrap a nom parser or combinator with this macro to add a trace point
 #[macro_export]
 macro_rules! tr (
@@ -471,6 +502,8 @@ mod tests {
       ))
     );
 
+    deactivate_trace!();
+    activate_trace!();
     println!("parsed: {:?}", parser("data: (1,2,3)"));
 
     print_trace!();

@@ -3,6 +3,13 @@ name = "nom-trace"
 version = "0.1.0"
 authors = ["Geoffroy Couprie <geo.couprie@gmail.com>"]
 edition = "2018"
+description = "A tracer for nom parsers"
+license = "MIT"
+repository = "https://github.com/Geal/nom-trace"
+readme = "README.md"
+documentation = "https://docs.rs/nom-trace"
+keywords = ["parser", "parser-combinators", "parsing", "streaming", "bit"]
+categories = ["parsing"]
 
 [dependencies]
 nom = "^4"

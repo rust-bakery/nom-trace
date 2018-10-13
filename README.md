@@ -80,5 +80,9 @@ Parser level is indicated through indentation. For each trace point, we have:
 - traces for sub parsers
 - `->` followed by the parser's result
 
+You can add intermediate names instead of combinator names for the trace,
+like this: `tr!(PARENS, delimited!( ... ))`
+this would replace the name `delimited` in the trace print, with `PARENS`
+
 This tracer works with parsers based on `&[u8]` and `&str` input types.
 For `&[u8]`, input positions will be displayed as a hexdump.

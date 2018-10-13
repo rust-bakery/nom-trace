@@ -80,6 +80,10 @@
 //! - traces for sub parsers
 //! - `->` followed by the parser's result
 //!
+//! You can add intermediate names instead of combinator names for the trace,
+//! like this: `tr!(PARENS, delimited!( ... ))`
+//! this would replace the name `delimited` in the trace print, with `PARENS`
+//!
 //! This tracer works with parsers based on `&[u8]` and `&str` input types.
 //! For `&[u8]`, input positions will be displayed as a hexdump.
 //!
@@ -374,7 +378,58 @@ macro_rules! deactivate_trace (
 /// wrap a nom parser or combinator with this macro to add a trace point
 #[macro_export]
 macro_rules! tr (
+  ($i:expr, $name:ident, $submac:ident!( $($args:tt)* )) => (
+    tr!(__impl $i, stringify!($name), $submac!($($args)*))
+  );
+  ($i:expr, $name:ident, $f:expr) => (
+    tr!(__impl $i, stringify!($name), call!($f))
+  );
   ($i:expr, $submac:ident!( $($args:tt)* )) => (
+    tr!(__impl $i, stringify!($submac), $submac!($($args)*))
+  );
+  ($i:expr, $f:expr) => (
+    tr!(__impl $i, stringify!($f), call!($f))
+  );
+  (__impl $i:expr, $name:expr, $submac:ident!( $($args:tt)* )) => (
+    {
+      use ::nom::Err;
+
+      let input = $i;
+      NOM_TRACE.with(|trace| {
+        (*trace.borrow_mut()).open(input, $name);
+      });
+
+      let res = $submac!(input, $($args)*);
+      match &res {
+        Ok((_, o)) => {
+          NOM_TRACE.with(|trace| {
+            (*trace.borrow_mut()).close_ok(input, $name,
+              format!("{:?}", o));
+          });
+        }
+        Err(Err::Error(e)) =>  {
+          NOM_TRACE.with(|trace| {
+            (*trace.borrow_mut()).close_error(input, $name,
+              format!("{:?}", e));
+          });
+        },
+        Err(Err::Failure(e)) =>  {
+          NOM_TRACE.with(|trace| {
+            (*trace.borrow_mut()).close_failure(input, $name,
+              format!("{:?}", e));
+          });
+        },
+        Err(Err::Incomplete(i)) =>  {
+          NOM_TRACE.with(|trace| {
+            (*trace.borrow_mut()).close_incomplete(input, $name, i.clone());
+          });
+        },
+      };
+
+      res
+    }
+  );
+  (__impl $i:expr, $submac:ident!( $($args:tt)* )) => (
     {
       use ::nom::Err;
 
@@ -413,7 +468,7 @@ macro_rules! tr (
       res
     }
   );
-  ($i:expr, $f:expr) => (
+  (__impl $i:expr, $f:expr) => (
     {
       use nom::Err;
 
@@ -488,9 +543,9 @@ mod tests {
   #[test]
   pub fn trace_str_parser() {
     named!(parser<&str, Vec<&str>>,
-      tr!(preceded!(
+      tr!(ROOT, preceded!(
         tr!(tag!("data: ")),
-        tr!(delimited!(
+        tr!(PARENS, delimited!(
           tag!("("),
           separated_list!(
             tr!(tag!(",")),

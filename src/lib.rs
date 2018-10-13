@@ -236,7 +236,7 @@ macro_rules! declare_trace (
 macro_rules! tr (
   ($i:expr, $submac:ident!( $($args:tt)* )) => (
     {
-      use $crate::nom::{Err,ErrorKind};
+      use $crate::nom::Err;
 
       let input = $i;
       NOM_TRACE.with(|trace| {
@@ -276,7 +276,7 @@ macro_rules! tr (
   );
   ($i:expr, $f:expr) => (
     {
-      use $crate::nom::{Err,ErrorKind};
+      use $crate::nom::Err;
 
       let input = $i;
       NOM_TRACE.with(|trace| {

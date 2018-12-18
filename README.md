@@ -8,13 +8,13 @@ As an example, if you run the following code:
 
 ```rust
 #[macro_use] extern crate nom;
-#[macro_use] extern crate nom-trace;
+#[macro_use] extern crate nom_trace;
 
 //adds a thread local storage object to store the trace
 declare_trace!();
 
 pub fn main() {
-  named!(parser<Vec<&[u8]>>,
+  named!(parser<&str, Vec<&str>>,
     //wrap a parser with tr!() to add a trace point
     tr!(preceded!(
       tr!(tag!("data: ")),
@@ -22,14 +22,14 @@ pub fn main() {
         tag!("("),
         separated_list!(
           tr!(tag!(",")),
-          tr!(digit)
+          tr!(nom::digit)
         ),
         tr!(tag!(")"))
       ))
     ))
   );
 
-  println!("parsed: {:?}", parser(&b"data: (1,2,3)"[..]));
+  println!("parsed: {:?}", parser("data: (1,2,3)"));
 
   // prints the last parser trace
   print_trace!();

@@ -257,6 +257,18 @@ impl From<&str> for Input {
   }
 }
 
+impl From<nom::types::CompleteByteSlice<'_>> for Input {
+  fn from(input: nom::types::CompleteByteSlice) -> Self {
+    Input::Bytes(input.as_ptr(), input.len())
+  }
+}
+
+impl From<nom::types::CompleteStr<'_>> for Input {
+  fn from(input: nom::types::CompleteStr) -> Self {
+    Input::String(input.as_ptr(), input.len())
+  }
+}
+
 impl Debug for Input {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
@@ -516,6 +528,7 @@ macro_rules! tr (
 mod tests {
   use super::*;
   use nom::digit;
+  use nom::types::CompleteStr;
 
   declare_trace!();
 
@@ -560,6 +573,16 @@ mod tests {
     deactivate_trace!();
     activate_trace!();
     println!("parsed: {:?}", parser("data: (1,2,3)"));
+
+    print_trace!();
+    reset_trace!();
+  }
+
+  #[test]
+  pub fn complete_str_parser() {
+    named!(parser<CompleteStr, CompleteStr>, tr!(tag!("a")));
+
+    assert_eq!(parser(CompleteStr("abc")), Ok((CompleteStr("bc"), CompleteStr("a"))));
 
     print_trace!();
     reset_trace!();

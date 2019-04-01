@@ -8,7 +8,9 @@
 //!
 //! ```rust
 //! #[macro_use] extern crate nom;
-//! #[macro_use] extern crate nom-trace;
+//! #[macro_use] extern crate nom_trace;
+//!
+//! use nom::digit;
 //!
 //! //adds a thread local storage object to store the trace
 //! declare_trace!();
@@ -40,7 +42,7 @@
 //! ```
 //!
 //! You would get the following result
-//! ```
+//! ```ignore
 //! parsed: Ok(("", ["1", "2", "3"]))
 //! preceded        "data: (1,2,3)"
 //!
@@ -537,7 +539,6 @@ mod tests {
 
     print_trace!();
     reset_trace!();
-    panic!();
   }
 
   #[test]
@@ -562,6 +563,5 @@ mod tests {
 
     print_trace!();
     reset_trace!();
-    panic!();
   }
 }

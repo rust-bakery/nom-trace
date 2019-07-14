@@ -89,6 +89,7 @@ extern crate nom;
 
 use std::fmt::{self,Debug};
 use std::collections::HashMap;
+use nom::IResult;
 
 pub struct TraceList {
   pub traces: HashMap<&'static str, Trace>,
@@ -108,7 +109,7 @@ impl TraceList {
   }
 
   pub fn print(&self, tag: &'static str) {
-    let t = self.traces.get(tag).map(|t| t.print());
+    self.traces.get(tag).map(|t| t.print());
   }
 
   pub fn activate(&mut self, tag: &'static str) {
@@ -397,6 +398,30 @@ macro_rules! deactivate_trace (
   });
  };
 );
+
+/// function tracer
+fn tr<I,O,E,F>(tag: &'static str, name: &'static str, f: F) -> impl Fn(I) -> IResult<I,O,E>
+  where Input: From<I>,
+        F: Fn(I) -> IResult<I,O,E>,
+        I: Clone,
+        O: Debug,
+        E: Debug {
+  move |i: I| {
+    let input1 = i.clone();
+    let input2 = i.clone();
+    NOM_TRACE.with(|trace| {
+      (*trace.borrow_mut()).open(tag, input1, name);
+    });
+
+    let res = f(i);
+
+    NOM_TRACE.with(|trace| {
+      (*trace.borrow_mut()).close(tag, input2, name, &res);
+    });
+
+    res
+  }
+}
 
 /// wrap a nom parser or combinator with this macro to add a trace point
 #[macro_export]

@@ -131,54 +131,21 @@ impl Trace {
     }
   }
 
-  pub fn close_ok<T>(&mut self, input: T, location: &'static str, result: String)
-    where Input: From<T> {
+  pub fn close<I,O:Debug,E:Debug>(&mut self, input: I, location: &'static str, result: &nom::IResult<I,O,E>)
+    where Input: From<I> {
     if self.active {
       self.level -= 1;
+      let event_type = match result {
+        Ok((_,o)) => TraceEventType::CloseOk(format!("{:?}", o)),
+        Err(nom::Err::Error(e)) => TraceEventType::CloseError(format!("{:?}", e)),
+        Err(nom::Err::Failure(e)) => TraceEventType::CloseFailure(format!("{:?}", e)),
+        Err(nom::Err::Incomplete(i)) => TraceEventType::CloseIncomplete(i.clone()),
+      };
       self.events.push(TraceEvent::new(
         self.level,
         input,
         location,
-        TraceEventType::CloseOk(result),
-      ));
-    }
-  }
-
-  pub fn close_error<T>(&mut self, input: T, location: &'static str, result: String)
-    where Input: From<T> {
-    if self.active {
-      self.level -= 1;
-      self.events.push(TraceEvent::new(
-        self.level,
-        input,
-        location,
-        TraceEventType::CloseError(result),
-      ));
-    }
-  }
-
-  pub fn close_failure<T>(&mut self, input: T, location: &'static str, result: String)
-    where Input: From<T> {
-    if self.active {
-      self.level -= 1;
-      self.events.push(TraceEvent::new(
-        self.level,
-        input,
-        location,
-        TraceEventType::CloseFailure(result),
-      ));
-    }
-  }
-
-  pub fn close_incomplete<T>(&mut self, input: T, location: &'static str, needed: nom::Needed)
-    where Input: From<T> {
-    if self.active {
-      self.level -= 1;
-      self.events.push(TraceEvent::new(
-        self.level,
-        input,
-        location,
-        TraceEventType::CloseIncomplete(needed),
+        event_type
       ));
     }
   }
@@ -383,117 +350,45 @@ macro_rules! tr (
   );
   (__impl $i:expr, $name:expr, $submac:ident!( $($args:tt)* )) => (
     {
-      use ::nom::Err;
-
       let input = $i;
       $crate::NOM_TRACE.with(|trace| {
         (*trace.borrow_mut()).open(input, $name);
       });
 
       let res = $submac!(input, $($args)*);
-      match &res {
-        Ok((_, o)) => {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_ok(input, $name,
-              format!("{:?}", o));
-          });
-        }
-        Err(Err::Error(e)) =>  {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_error(input, $name,
-              format!("{:?}", e));
-          });
-        },
-        Err(Err::Failure(e)) =>  {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_failure(input, $name,
-              format!("{:?}", e));
-          });
-        },
-        Err(Err::Incomplete(i)) =>  {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_incomplete(input, $name, i.clone());
-          });
-        },
-      };
+      $crate::NOM_TRACE.with(|trace| {
+        (*trace.borrow_mut()).close(input, $name, &res);
+      });
 
       res
     }
   );
   (__impl $i:expr, $submac:ident!( $($args:tt)* )) => (
     {
-      use ::nom::Err;
-
       let input = $i;
       $crate::NOM_TRACE.with(|trace| {
         (*trace.borrow_mut()).open(input, stringify!($submac));
       });
 
       let res = $submac!(input, $($args)*);
-      match &res {
-        Ok((_, o)) => {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_ok(input, stringify!($submac!($($args)*)),
-              format!("{:?}", o));
-          });
-        }
-        Err(Err::Error(e)) =>  {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_error(input, stringify!($submac!($($args)*)),
-              format!("{:?}", e));
-          });
-        },
-        Err(Err::Failure(e)) =>  {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_failure(input, stringify!($submac!($($args)*)),
-              format!("{:?}", e));
-          });
-        },
-        Err(Err::Incomplete(i)) =>  {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_incomplete(input, stringify!($submac!($($args)*)), i.clone());
-          });
-        },
-      };
+      $crate::NOM_TRACE.with(|trace| {
+        (*trace.borrow_mut()).close(input, $name, &res);
+      });
 
       res
     }
   );
   (__impl $i:expr, $f:expr) => (
     {
-      use nom::Err;
-
       let input = $i;
       $crate::NOM_TRACE.with(|trace| {
         (*trace.borrow_mut()).open(input, stringify!($f));
       });
 
       let res = $f(input);
-      match &res {
-        Ok((_, o)) => {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_ok(input, stringify!($f),
-              format!("{:?}", o));
-          });
-        }
-        Err(Err::Error(e)) =>  {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_error(input, stringify!($f),
-              format!("{:?}", e));
-          });
-        },
-        Err(Err::Failure(e)) =>  {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_failure(input, stringify!($f),
-              format!("{:?}", e));
-          });
-        },
-        Err(Err::Incomplete(i)) =>  {
-          $crate::NOM_TRACE.with(|trace| {
-            (*trace.borrow_mut()).close_incomplete(input, stringify!($f), i.clone());
-          });
-        },
-      };
+      $crate::NOM_TRACE.with(|trace| {
+        (*trace.borrow_mut()).close(input, $name, &res);
+      });
 
       res
     }

@@ -4,7 +4,7 @@ extern crate nom;
 #[macro_use]
 extern crate nom_trace;
 
-use nom::{recognize_float, sp};
+use nom::{number::complete::recognize_float, character::complete::space0 as sp};
 
 use std::str;
 use std::collections::HashMap;
@@ -86,12 +86,12 @@ named!(
 named!(
   root<JsonValue>,
   tr!(delimited!(
-    call!(nom::sp),
+    call!(sp),
     tr!(alt!(
       map!(tr!(hash), JsonValue::Object) |
       map!(tr!(array), JsonValue::Array)
     )),
-    not!(complete!(nom::sp))
+    not!(complete!(sp))
   ))
 );
 

@@ -12,4 +12,4 @@ keywords = ["parser", "parser-combinators", "parsing", "streaming", "bit"]
 categories = ["parsing"]
 
 [dependencies]
-nom = "^4"
+nom = "^5"

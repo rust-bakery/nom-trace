@@ -88,6 +88,51 @@
 extern crate nom;
 
 use std::fmt::{self,Debug};
+use std::collections::HashMap;
+
+pub struct TraceList {
+  pub traces: HashMap<&'static str, Trace>,
+}
+
+impl TraceList {
+  pub fn new() -> Self {
+    let mut traces = HashMap::new();
+    traces.insert("default", Trace::new());
+
+    TraceList { traces }
+  }
+
+  pub fn reset(&mut self, tag: &'static str) {
+    let t = self.traces.entry(tag).or_insert(Trace::new());
+    t.reset();
+  }
+
+  pub fn print(&self, tag: &'static str) {
+    let t = self.traces.get(tag).map(|t| t.print());
+  }
+
+  pub fn activate(&mut self, tag: &'static str) {
+    let t = self.traces.entry(tag).or_insert(Trace::new());
+    t.active = true;
+  }
+
+  pub fn deactivate(&mut self, tag: &'static str) {
+    let t = self.traces.entry(tag).or_insert(Trace::new());
+    t.active = false;
+  }
+
+  pub fn open<T>(&mut self, tag: &'static str, input: T, location: &'static str)
+    where Input: From<T> {
+    let t = self.traces.entry(tag).or_insert(Trace::new());
+    t.open(input, location);
+  }
+
+  pub fn close<I,O:Debug,E:Debug>(&mut self, tag: &'static str, input: I, location: &'static str, result: &nom::IResult<I,O,E>)
+    where Input: From<I> {
+    let t = self.traces.entry(tag).or_insert(Trace::new());
+    t.close(input, location, result);
+  }
+}
 
 /// the main structure hoding trace events. It is stored in a thread level
 /// storage variable
@@ -290,7 +335,7 @@ fn to_hex_chunk(chunk: &[u8], i: usize, chunk_size: usize, v: &mut Vec<u8>) {
 }
 
 thread_local! {
-  pub static NOM_TRACE: ::std::cell::RefCell<Trace> = ::std::cell::RefCell::new(Trace::new());
+  pub static NOM_TRACE: ::std::cell::RefCell<TraceList> = ::std::cell::RefCell::new(TraceList::new());
 }
 
 /// print the trace events to stdout
@@ -298,7 +343,12 @@ thread_local! {
 macro_rules! print_trace (
  () => {
   $crate::NOM_TRACE.with(|trace| {
-    trace.borrow().print();
+    trace.borrow().print("default");
+  });
+ };
+ ($tag:expr) => {
+  $crate::NOM_TRACE.with(|trace| {
+    trace.borrow().print($tag);
   });
  };
 );
@@ -308,7 +358,12 @@ macro_rules! print_trace (
 macro_rules! reset_trace (
  () => {
   $crate::NOM_TRACE.with(|trace| {
-    trace.borrow_mut().reset();
+    trace.borrow_mut().reset("default");
+  });
+ };
+ ($tag:expr) => {
+  $crate::NOM_TRACE.with(|trace| {
+    trace.borrow_mut().reset($tag);
   });
  };
 );
@@ -318,7 +373,12 @@ macro_rules! reset_trace (
 macro_rules! activate_trace (
  () => {
   $crate::NOM_TRACE.with(|trace| {
-    trace.borrow_mut().active = true;
+    trace.borrow_mut().activate("default");
+  });
+ };
+ ($tag:expr) => {
+  $crate::NOM_TRACE.with(|trace| {
+    trace.borrow_mut().activate($tag);
   });
  };
 );
@@ -328,7 +388,12 @@ macro_rules! activate_trace (
 macro_rules! deactivate_trace (
  () => {
   $crate::NOM_TRACE.with(|trace| {
-    trace.borrow_mut().active = false;
+    trace.borrow_mut().deactivate("default");
+  });
+ };
+ ($tag:expr) => {
+  $crate::NOM_TRACE.with(|trace| {
+    trace.borrow_mut().deactivate($tag);
   });
  };
 );
@@ -337,57 +402,79 @@ macro_rules! deactivate_trace (
 #[macro_export]
 macro_rules! tr (
   ($i:expr, $name:ident, $submac:ident!( $($args:tt)* )) => (
-    tr!(__impl $i, stringify!($name), $submac!($($args)*))
+    tr!(__impl $i, "default", stringify!($name), $submac!($($args)*))
   );
   ($i:expr, $name:ident, $f:expr) => (
-    tr!(__impl $i, stringify!($name), call!($f))
+    tr!(__impl $i, "default", stringify!($name), call!($f))
   );
   ($i:expr, $submac:ident!( $($args:tt)* )) => (
-    tr!(__impl $i, stringify!($submac), $submac!($($args)*))
+    tr!(__impl $i, "default", stringify!($submac), $submac!($($args)*))
   );
   ($i:expr, $f:expr) => (
-    tr!(__impl $i, stringify!($f), call!($f))
+    tr!(__impl $i, "default", stringify!($f), call!($f))
   );
   (__impl $i:expr, $name:expr, $submac:ident!( $($args:tt)* )) => (
-    {
-      let input = $i;
-      $crate::NOM_TRACE.with(|trace| {
-        (*trace.borrow_mut()).open(input, $name);
-      });
-
-      let res = $submac!(input, $($args)*);
-      $crate::NOM_TRACE.with(|trace| {
-        (*trace.borrow_mut()).close(input, $name, &res);
-      });
-
-      res
-    }
+    tr!(__impl $i, "default", $name, $submac!($($args)*))
   );
   (__impl $i:expr, $submac:ident!( $($args:tt)* )) => (
+    tr!(__impl $i, "default", $submac!($($args)*))
+  );
+  (__impl $i:expr, $f:expr) => (
+    tr!(__impl $i, "default", $f)
+  );
+
+  ($i:expr, $tag:expr, $name:ident, $submac:ident!( $($args:tt)* )) => (
+    tr!(__impl $i, $tag, stringify!($name), $submac!($($args)*))
+  );
+  ($i:expr, $tag:expr, $name:ident, $f:expr) => (
+    tr!(__impl $i, $tag, stringify!($name), call!($f))
+  );
+  ($i:expr, $tag:expr, $submac:ident!( $($args:tt)* )) => (
+    tr!(__impl $i, $tag, stringify!($submac), $submac!($($args)*))
+  );
+  ($i:expr, $tag:expr, $f:expr) => (
+    tr!(__impl $i, $tag, stringify!($f), call!($f))
+  );
+  (__impl $i:expr, $tag:expr, $name:expr, $submac:ident!( $($args:tt)* )) => (
     {
       let input = $i;
       $crate::NOM_TRACE.with(|trace| {
-        (*trace.borrow_mut()).open(input, stringify!($submac));
+        (*trace.borrow_mut()).open($tag, input, $name);
       });
 
       let res = $submac!(input, $($args)*);
       $crate::NOM_TRACE.with(|trace| {
-        (*trace.borrow_mut()).close(input, $name, &res);
+        (*trace.borrow_mut()).close($tag, input, $name, &res);
       });
 
       res
     }
   );
-  (__impl $i:expr, $f:expr) => (
+  (__impl $i:expr, $tag:expr, $submac:ident!( $($args:tt)* )) => (
     {
       let input = $i;
       $crate::NOM_TRACE.with(|trace| {
-        (*trace.borrow_mut()).open(input, stringify!($f));
+        (*trace.borrow_mut()).open($tag, input, stringify!($submac));
+      });
+
+      let res = $submac!(input, $($args)*);
+      $crate::NOM_TRACE.with(|trace| {
+        (*trace.borrow_mut()).close($tag, input, $name, &res);
+      });
+
+      res
+    }
+  );
+  (__impl $i:expr, $tag:expr, $f:expr) => (
+    {
+      let input = $i;
+      $crate::NOM_TRACE.with(|trace| {
+        (*trace.borrow_mut()).open($tag, input, stringify!($f));
       });
 
       let res = $f(input);
       $crate::NOM_TRACE.with(|trace| {
-        (*trace.borrow_mut()).close(input, $name, &res);
+        (*trace.borrow_mut()).close($tag, input, $name, &res);
       });
 
       res

@@ -449,7 +449,7 @@ macro_rules! deactivate_trace (
 );
 
 /// function tracer
-fn tr<I,O,E,F>(tag: &'static str, name: &'static str, f: F) -> impl Fn(I) -> IResult<I,O,E>
+pub fn tr<I,O,E,F>(tag: &'static str, name: &'static str, f: F) -> impl Fn(I) -> IResult<I,O,E>
   where Input: From<I>,
         F: Fn(I) -> IResult<I,O,E>,
         I: Clone,

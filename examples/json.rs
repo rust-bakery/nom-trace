@@ -95,8 +95,6 @@ named!(
   ))
 );
 
-declare_trace!();
-
 fn main() {
   let data = b"  { \"a\"\t: 42,
   \"b\": [ \"x\", \"y\", 12 ] ,

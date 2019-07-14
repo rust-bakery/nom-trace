@@ -10,9 +10,6 @@
 //! #[macro_use] extern crate nom;
 //! #[macro_use] extern crate nom-trace;
 //!
-//! //adds a thread local storage object to store the trace
-//! declare_trace!();
-//!
 //! pub fn main() {
 //!   named!(parser<Vec<&[u8]>>,
 //!     //wrap a parser with tr!() to add a trace point
@@ -92,8 +89,8 @@ extern crate nom;
 
 use std::fmt::{self,Debug};
 
-/// the main structure hoding trace events. It must be declared and stored
-/// in a thread level storage variable through the `declare_trace!()` macro
+/// the main structure hoding trace events. It is stored in a thread level
+/// storage variable
 pub struct Trace {
   pub events: Vec<TraceEvent>,
   pub level: usize,
@@ -325,21 +322,15 @@ fn to_hex_chunk(chunk: &[u8], i: usize, chunk_size: usize, v: &mut Vec<u8>) {
   }
 }
 
-/// defines the storage point for trace event
-#[macro_export]
-macro_rules! declare_trace (
- () => (
-    thread_local! {
-      pub static NOM_TRACE: ::std::cell::RefCell<$crate::Trace> = ::std::cell::RefCell::new($crate::Trace::new());
-    }
-  );
-);
+thread_local! {
+  pub static NOM_TRACE: ::std::cell::RefCell<Trace> = ::std::cell::RefCell::new(Trace::new());
+}
 
 /// print the trace events to stdout
 #[macro_export]
 macro_rules! print_trace (
  () => {
-  NOM_TRACE.with(|trace| {
+  $crate::NOM_TRACE.with(|trace| {
     trace.borrow().print();
   });
  };
@@ -349,7 +340,7 @@ macro_rules! print_trace (
 #[macro_export]
 macro_rules! reset_trace (
  () => {
-  NOM_TRACE.with(|trace| {
+  $crate::NOM_TRACE.with(|trace| {
     trace.borrow_mut().reset();
   });
  };
@@ -359,7 +350,7 @@ macro_rules! reset_trace (
 #[macro_export]
 macro_rules! activate_trace (
  () => {
-  NOM_TRACE.with(|trace| {
+  $crate::NOM_TRACE.with(|trace| {
     trace.borrow_mut().active = true;
   });
  };
@@ -369,7 +360,7 @@ macro_rules! activate_trace (
 #[macro_export]
 macro_rules! deactivate_trace (
  () => {
-  NOM_TRACE.with(|trace| {
+  $crate::NOM_TRACE.with(|trace| {
     trace.borrow_mut().active = false;
   });
  };
@@ -395,32 +386,32 @@ macro_rules! tr (
       use ::nom::Err;
 
       let input = $i;
-      NOM_TRACE.with(|trace| {
+      $crate::NOM_TRACE.with(|trace| {
         (*trace.borrow_mut()).open(input, $name);
       });
 
       let res = $submac!(input, $($args)*);
       match &res {
         Ok((_, o)) => {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_ok(input, $name,
               format!("{:?}", o));
           });
         }
         Err(Err::Error(e)) =>  {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_error(input, $name,
               format!("{:?}", e));
           });
         },
         Err(Err::Failure(e)) =>  {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_failure(input, $name,
               format!("{:?}", e));
           });
         },
         Err(Err::Incomplete(i)) =>  {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_incomplete(input, $name, i.clone());
           });
         },
@@ -434,32 +425,32 @@ macro_rules! tr (
       use ::nom::Err;
 
       let input = $i;
-      NOM_TRACE.with(|trace| {
+      $crate::NOM_TRACE.with(|trace| {
         (*trace.borrow_mut()).open(input, stringify!($submac));
       });
 
       let res = $submac!(input, $($args)*);
       match &res {
         Ok((_, o)) => {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_ok(input, stringify!($submac!($($args)*)),
               format!("{:?}", o));
           });
         }
         Err(Err::Error(e)) =>  {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_error(input, stringify!($submac!($($args)*)),
               format!("{:?}", e));
           });
         },
         Err(Err::Failure(e)) =>  {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_failure(input, stringify!($submac!($($args)*)),
               format!("{:?}", e));
           });
         },
         Err(Err::Incomplete(i)) =>  {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_incomplete(input, stringify!($submac!($($args)*)), i.clone());
           });
         },
@@ -473,32 +464,32 @@ macro_rules! tr (
       use nom::Err;
 
       let input = $i;
-      NOM_TRACE.with(|trace| {
+      $crate::NOM_TRACE.with(|trace| {
         (*trace.borrow_mut()).open(input, stringify!($f));
       });
 
       let res = $f(input);
       match &res {
         Ok((_, o)) => {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_ok(input, stringify!($f),
               format!("{:?}", o));
           });
         }
         Err(Err::Error(e)) =>  {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_error(input, stringify!($f),
               format!("{:?}", e));
           });
         },
         Err(Err::Failure(e)) =>  {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_failure(input, stringify!($f),
               format!("{:?}", e));
           });
         },
         Err(Err::Incomplete(i)) =>  {
-          NOM_TRACE.with(|trace| {
+          $crate::NOM_TRACE.with(|trace| {
             (*trace.borrow_mut()).close_incomplete(input, stringify!($f), i.clone());
           });
         },
@@ -513,9 +504,7 @@ macro_rules! tr (
 #[cfg(test)]
 mod tests {
   use super::*;
-  use nom::digit;
-
-  declare_trace!();
+  use nom::character::complete::digit1 as digit;
 
   #[test]
   pub fn trace_bytes_parser() {
